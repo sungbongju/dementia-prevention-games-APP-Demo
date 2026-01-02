@@ -16,13 +16,15 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const PIP_SMALL = { width: 180, height: 120 };
 const PIP_LARGE = { width: 300, height: 200 };
+const PIP_GAME = { width: 120, height: 80 };
 const CIRCLE_SIZE = 60;
 
 interface AvatarProps {
   playerName: string;
+  isInGame?: boolean;
 }
 
-export default function Avatar({ playerName }: AvatarProps) {
+export default function Avatar({ playerName, isInGame = false }: AvatarProps) {
   const webViewRef = useRef<WebView>(null);
   const { stats, bestScores, pendingGameExplain, clearGameExplain } = useGame();
   
@@ -39,7 +41,33 @@ export default function Avatar({ playerName }: AvatarProps) {
     y: SCREEN_HEIGHT - PIP_SMALL.height - 50 
   })).current;
 
-  // 🆕 게임 설명 요청 감지
+  // 게임 모드 진입/이탈 시 위치/크기 조정
+  useEffect(() => {
+    if (isClosed) return;
+    
+    if (isInGame) {
+      setPipSize(PIP_GAME);
+      setIsExpanded(false);
+      Animated.spring(pan, {
+        toValue: {
+          x: SCREEN_WIDTH - PIP_GAME.width - 10,
+          y: SCREEN_HEIGHT - PIP_GAME.height - 100,
+        },
+        useNativeDriver: false,
+      }).start();
+    } else {
+      setPipSize(PIP_SMALL);
+      Animated.spring(pan, {
+        toValue: {
+          x: SCREEN_WIDTH - PIP_SMALL.width - 16,
+          y: SCREEN_HEIGHT - PIP_SMALL.height - 50,
+        },
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [isInGame, isClosed]);
+
+  // 게임 설명 요청 감지
   useEffect(() => {
     if (pendingGameExplain && isLoaded && !isClosed) {
       console.log('📤 EXPLAIN_GAME 전송:', pendingGameExplain);
@@ -118,6 +146,8 @@ export default function Avatar({ playerName }: AvatarProps) {
   ).current;
 
   const handleDoubleTap = () => {
+    if (isInGame) return;
+    
     const now = Date.now();
     if (now - lastTap.current < 300) {
       const currentX = (pan.x as any)._value;
@@ -151,7 +181,7 @@ export default function Avatar({ playerName }: AvatarProps) {
     
     const currentX = (pan.x as any)._value;
     const currentY = (pan.y as any)._value;
-    const currentSize = isExpanded ? PIP_LARGE : PIP_SMALL;
+    const currentSize = isInGame ? PIP_GAME : (isExpanded ? PIP_LARGE : PIP_SMALL);
     
     const circleX = currentX + currentSize.width - CIRCLE_SIZE;
     const circleY = currentY + currentSize.height - CIRCLE_SIZE;
@@ -163,7 +193,7 @@ export default function Avatar({ playerName }: AvatarProps) {
   const handleReopen = () => {
     const currentX = (pan.x as any)._value;
     const currentY = (pan.y as any)._value;
-    const targetSize = isExpanded ? PIP_LARGE : PIP_SMALL;
+    const targetSize = isInGame ? PIP_GAME : (isExpanded ? PIP_LARGE : PIP_SMALL);
     
     const pipX = currentX - targetSize.width + CIRCLE_SIZE;
     const pipY = currentY - targetSize.height + CIRCLE_SIZE;
@@ -224,10 +254,16 @@ export default function Avatar({ playerName }: AvatarProps) {
       >
         <TouchableOpacity 
           onPress={handleReopen} 
-          style={styles.reopenButton}
+          style={[
+            styles.reopenButton,
+            isInGame && styles.reopenButtonSmall,
+          ]}
           activeOpacity={0.7}
         >
-          <Text style={styles.aiEmoji}>🤖</Text>
+          <Text style={[
+            styles.aiEmoji,
+            isInGame && styles.aiEmojiSmall,
+          ]}>🤖</Text>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -251,7 +287,10 @@ export default function Avatar({ playerName }: AvatarProps) {
           activeOpacity={0.6}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.controlText}>×</Text>
+          <Text style={[
+            styles.controlText,
+            isInGame && styles.controlTextSmall,
+          ]}>×</Text>
         </TouchableOpacity>
       </View>
 
@@ -261,7 +300,10 @@ export default function Avatar({ playerName }: AvatarProps) {
         </View>
       )}
 
-      <View style={styles.dragArea} {...panResponder.panHandlers}>
+      <View 
+        style={[styles.dragArea, isInGame && styles.dragAreaGame]} 
+        {...(isInGame ? {} : panResponder.panHandlers)}
+      >
         <TouchableOpacity 
           activeOpacity={1} 
           onPress={handleDoubleTap}
@@ -314,9 +356,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  controlTextSmall: {
+    fontSize: 14,
+  },
   dragArea: {
     flex: 1,
     marginTop: 28,
+  },
+  dragAreaGame: {
+    marginTop: 20,
   },
   webviewWrapper: {
     flex: 1,
@@ -356,7 +404,15 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
+  reopenButtonSmall: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+  },
   aiEmoji: {
     fontSize: 28,
+  },
+  aiEmojiSmall: {
+    fontSize: 20,
   },
 });
