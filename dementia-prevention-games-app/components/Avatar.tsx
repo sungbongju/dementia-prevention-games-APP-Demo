@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useGame } from '@/contexts/GameContext';
 
 const AVATAR_URL = 'https://dementia-prevent-game-bot-sbj.netlify.app';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -23,20 +24,44 @@ interface AvatarProps {
 
 export default function Avatar({ playerName }: AvatarProps) {
   const webViewRef = useRef<WebView>(null);
+  const { stats, bestScores, pendingGameExplain, clearGameExplain } = useGame();
   
   const [pipSize, setPipSize] = useState(PIP_SMALL);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [webViewKey, setWebViewKey] = useState(0);
   
   const lastTap = useRef<number>(0);
   
-  // 초기 위치 (우측 하단 구석)
   const pan = useRef(new Animated.ValueXY({ 
     x: SCREEN_WIDTH - PIP_SMALL.width - 16, 
     y: SCREEN_HEIGHT - PIP_SMALL.height - 50 
   })).current;
 
-  // 드래그용 (WebView 영역)
+  // 🆕 게임 설명 요청 감지
+  useEffect(() => {
+    if (pendingGameExplain && isLoaded && !isClosed) {
+      console.log('📤 EXPLAIN_GAME 전송:', pendingGameExplain);
+      
+      const message = {
+        type: 'EXPLAIN_GAME',
+        game: pendingGameExplain,
+      };
+      
+      const js = `
+        (function() {
+          window.postMessage(${JSON.stringify(message)}, '*');
+          console.log('📤 EXPLAIN_GAME 전송됨');
+        })();
+        true;
+      `;
+      
+      webViewRef.current?.injectJavaScript(js);
+      clearGameExplain();
+    }
+  }, [pendingGameExplain, isLoaded, isClosed, clearGameExplain]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -71,7 +96,6 @@ export default function Avatar({ playerName }: AvatarProps) {
     })
   ).current;
 
-  // 동그라미 드래그용
   const circlePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -117,6 +141,14 @@ export default function Avatar({ playerName }: AvatarProps) {
   };
 
   const handleClose = () => {
+    const js = `
+      (function() {
+        window.postMessage({ type: 'STOP_AVATAR' }, '*');
+      })();
+      true;
+    `;
+    webViewRef.current?.injectJavaScript(js);
+    
     const currentX = (pan.x as any)._value;
     const currentY = (pan.y as any)._value;
     const currentSize = isExpanded ? PIP_LARGE : PIP_SMALL;
@@ -137,20 +169,50 @@ export default function Avatar({ playerName }: AvatarProps) {
     const pipY = currentY - targetSize.height + CIRCLE_SIZE;
     
     pan.setValue({ x: pipX, y: pipY });
+    
+    setWebViewKey(prev => prev + 1);
+    setIsLoaded(false);
     setIsClosed(false);
   };
 
-  const injectedJS = `
-    window.addEventListener('load', function() {
-      window.postMessage(JSON.stringify({
-        type: 'SET_PLAYER',
-        playerName: '${playerName}'
-      }), '*');
-    });
-    true;
-  `;
+  const sendStartMessage = () => {
+    const message = {
+      type: 'START_AVATAR',
+      name: playerName,
+      stats: {
+        total_games: stats.totalGames,
+        best_score: stats.bestScore,
+        avg_score: stats.avgScore,
+        best_hwatu: bestScores.hwatu,
+        best_pattern: bestScores.pattern,
+        best_memory: bestScores.memory,
+        best_proverb: bestScores.proverb,
+        best_calc: bestScores.calc,
+        best_sequence: bestScores.sequence,
+      }
+    };
+    
+    const js = `
+      (function() {
+        window.postMessage(${JSON.stringify(message)}, '*');
+        console.log('📤 START_AVATAR 전송됨');
+      })();
+      true;
+    `;
+    
+    webViewRef.current?.injectJavaScript(js);
+    console.log('📤 START_AVATAR 전송:', message);
+  };
 
-  // 닫힌 상태 - AI 동그라미 버튼
+  const handleWebViewLoad = () => {
+    console.log('🌐 WebView 로드 완료');
+    setIsLoaded(true);
+    
+    setTimeout(() => {
+      sendStartMessage();
+    }, 2000);
+  };
+
   if (isClosed) {
     return (
       <Animated.View
@@ -171,7 +233,6 @@ export default function Avatar({ playerName }: AvatarProps) {
     );
   }
 
-  // 일반 PIP 상태
   return (
     <Animated.View
       style={[
@@ -183,7 +244,6 @@ export default function Avatar({ playerName }: AvatarProps) {
         },
       ]}
     >
-      {/* X 버튼 */}
       <View style={styles.controlBar}>
         <TouchableOpacity 
           onPress={handleClose} 
@@ -195,7 +255,12 @@ export default function Avatar({ playerName }: AvatarProps) {
         </TouchableOpacity>
       </View>
 
-      {/* 드래그 가능한 WebView 영역 */}
+      {!isLoaded && (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>로딩 중...</Text>
+        </View>
+      )}
+
       <View style={styles.dragArea} {...panResponder.panHandlers}>
         <TouchableOpacity 
           activeOpacity={1} 
@@ -203,10 +268,11 @@ export default function Avatar({ playerName }: AvatarProps) {
           style={styles.webviewWrapper}
         >
           <WebView
+            key={webViewKey}
             ref={webViewRef}
             source={{ uri: AVATAR_URL }}
             style={styles.webview}
-            injectedJavaScript={injectedJS}
+            onLoad={handleWebViewLoad}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             allowsInlineMediaPlayback={true}
@@ -257,6 +323,21 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    zIndex: 10000,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 14,
   },
   closedButton: {
     position: 'absolute',

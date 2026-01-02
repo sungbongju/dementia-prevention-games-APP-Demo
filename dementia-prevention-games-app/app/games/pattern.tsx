@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useGame } from '../../contexts/GameContext';  // 추가!
+import { useGame } from '@/contexts/GameContext';
 
 const COLORS = [
   { id: 'red', color: '#e74c3c', name: '빨강' },
@@ -12,7 +12,7 @@ const COLORS = [
 
 export default function PatternGame() {
   const router = useRouter();
-  const { setGameScore } = useGame();  // 추가!
+  const { setGameScore } = useGame();
 
   const [sequence, setSequence] = useState<string[]>([]);
   const [playerSequence, setPlayerSequence] = useState<string[]>([]);
@@ -70,19 +70,17 @@ export default function PatternGame() {
     const currentIndex = newPlayerSequence.length - 1;
     
     if (colorId !== sequence[currentIndex]) {
-      endGame();
+      endGame(correct);
       return;
     }
 
     if (newPlayerSequence.length === sequence.length) {
-      setCorrect(prev => prev + 1);
+      const newCorrect = correct + 1;
+      setCorrect(newCorrect);
       setCanClick(false);
       
       if (level >= maxLevel) {
-        const finalScore = (correct + 1) * 20;
-        setScore(finalScore);
-        setGameScore('pattern', finalScore);  // Context에 저장!
-        setGameOver(true);
+        endGame(newCorrect);
       } else {
         setMessage('정답! 다음 단계로...');
         setLevel(prev => prev + 1);
@@ -91,11 +89,15 @@ export default function PatternGame() {
     }
   };
 
-  const endGame = () => {
-    const finalScore = correct * 20;
+  const endGame = (finalCorrect: number) => {
+    const finalScore = finalCorrect * 20;
     setScore(finalScore);
-    setGameScore('pattern', finalScore);  // Context에 저장!
     setGameOver(true);
+  };
+
+  const handleFinish = () => {
+    setGameScore('pattern', score);
+    router.back();
   };
 
   if (gameOver) {
@@ -105,8 +107,8 @@ export default function PatternGame() {
           <Text style={styles.resultIcon}>🎨</Text>
           <Text style={styles.resultTitle}>게임 완료!</Text>
           <Text style={styles.resultScore}>+{score}점</Text>
-          <Text style={styles.resultInfo}>{correct}단계 성공!</Text>
-          <TouchableOpacity style={styles.finishButton} onPress={() => router.back()}>
+          <Text style={styles.resultInfo}>{score / 20}단계 성공!</Text>
+          <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
             <Text style={styles.finishButtonText}>확인</Text>
           </TouchableOpacity>
         </View>

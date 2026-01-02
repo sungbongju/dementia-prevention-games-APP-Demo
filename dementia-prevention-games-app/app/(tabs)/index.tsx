@@ -9,17 +9,17 @@ import {
   Alert,
   Modal,
   FlatList,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import GameCard from '../../components/GameCard';
-import Avatar from '../../components/Avatar';
 import { getStats, saveRecord, getRanking } from '../../services/api';
-import { useGame } from '../../contexts/GameContext';
+import { useGame } from '@/contexts/GameContext';
 
 const GAMES = [
   { id: 'hwatu', title: '화투 짝맞추기', description: '같은 그림의 화투 패를 찾아 짝을 맞춰보세요.', icon: '🎴', color: '#1B4965' },
   { id: 'pattern', title: '색상 패턴 기억', description: '색상이 깜빡이는 순서를 기억하고 따라해 보세요.', icon: '🎨', color: '#2D5016' },
-  { id: 'memory', title: '숫자 기억하기', description: '화면에 나타나는 숫자를 순서대로 기억하세요.', icon: '🔢', color: '#E8B931' },
+  { id: 'numMemory', title: '숫자 기억하기', description: '화면에 나타나는 숫자를 순서대로 기억하세요.', icon: '🔢', color: '#E8B931' },
   { id: 'proverb', title: '속담 완성하기', description: '빈 칸에 알맞은 단어를 넣어 속담을 완성하세요.', icon: '📜', color: '#8B4513' },
   { id: 'calc', title: '산수 계산', description: '간단한 덧셈과 뺄셈 문제를 풀어보세요.', icon: '🧮', color: '#C73E3A' },
   { id: 'sequence', title: '순서 맞추기', description: '그림들을 논리적인 순서대로 배열하세요.', icon: '🔄', color: '#6B5B95' },
@@ -34,6 +34,7 @@ export default function HomeScreen() {
     bestScores, setBestScores,
     stats, setStats,
     logout,
+    requestGameExplain,
   } = useGame();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +49,7 @@ export default function HomeScreen() {
       return;
     }
     
+    Keyboard.dismiss();
     setIsLoading(true);
     
     try {
@@ -79,6 +81,7 @@ export default function HomeScreen() {
   };
 
   const handleGamePress = (gameId: string) => {
+    requestGameExplain(gameId);
     router.push(`/games/${gameId}` as any);
   };
 
@@ -173,9 +176,24 @@ export default function HomeScreen() {
 
   const totalSessionScore = Object.values(sessionScores).reduce((a, b) => a + b, 0);
 
+  const getGameScore = (gameId: string) => {
+    const sessionKey = gameId === 'numMemory' ? 'memory' : gameId;
+    const sessionScore = sessionScores[sessionKey as keyof typeof sessionScores] || 0;
+    const bestScore = bestScores[sessionKey as keyof typeof bestScores] || 0;
+    return sessionScore > 0 ? sessionScore : bestScore;
+  };
+
+  const isGameCompleted = (gameId: string) => {
+    const sessionKey = gameId === 'numMemory' ? 'memory' : gameId;
+    return (sessionScores[sessionKey as keyof typeof sessionScores] || 0) > 0;
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F0E6' }}>
-      <ScrollView style={styles.container}>
+      <ScrollView 
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>🧠 두뇌 건강 게임</Text>
           <Text style={styles.headerSubtitle}>즐겁게 두뇌를 단련해요!</Text>
@@ -191,6 +209,8 @@ export default function HomeScreen() {
                 onChangeText={setInputName}
                 placeholder="이름"
                 placeholderTextColor="#999"
+                onSubmitEditing={handleLogin}
+                returnKeyType="done"
               />
               <TouchableOpacity 
                 style={[styles.loginButton, isLoading && styles.buttonDisabled]} 
@@ -273,8 +293,8 @@ export default function HomeScreen() {
               description={game.description}
               icon={game.icon}
               color={game.color}
-              score={sessionScores[game.id] > 0 ? sessionScores[game.id] : bestScores[game.id]}
-              completed={sessionScores[game.id] > 0}
+              score={getGameScore(game.id)}
+              completed={isGameCompleted(game.id)}
               disabled={!isLoggedIn}
               onPress={() => handleGamePress(game.id)}
             />
@@ -282,8 +302,6 @@ export default function HomeScreen() {
         </View>
         <View style={{ height: 200 }} />
       </ScrollView>
-
-      {isLoggedIn && <Avatar playerName={playerName} />}
 
       <Modal
         visible={showRanking}

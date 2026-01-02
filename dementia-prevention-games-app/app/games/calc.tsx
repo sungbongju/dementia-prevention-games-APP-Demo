@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useGame } from '../../contexts/GameContext';  // 추가!
+import { useGame } from '@/contexts/GameContext';
 
 export default function CalcGame() {
   const router = useRouter();
-  const { setGameScore } = useGame();  // 추가!
+  const { setGameScore } = useGame();
 
   const [current, setCurrent] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -15,9 +15,13 @@ export default function CalcGame() {
   const [resultMessage, setResultMessage] = useState('');
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    generateProblems();
+    if (!initialized.current) {
+      initialized.current = true;
+      generateProblems();
+    }
   }, []);
 
   const generateProblems = () => {
@@ -38,13 +42,14 @@ export default function CalcGame() {
   };
 
   const submitAnswer = () => {
-    if (!userAnswer) return;
+    if (!userAnswer || problems.length === 0) return;
     
     const isCorrect = parseInt(userAnswer) === problems[current].answer;
+    const newCorrect = isCorrect ? correct + 1 : correct;
     
     setShowResult(true);
     if (isCorrect) {
-      setCorrect(prev => prev + 1);
+      setCorrect(newCorrect);
       setResultMessage('정답! 👏');
     } else {
       setResultMessage(`오답! 정답: ${problems[current].answer}`);
@@ -52,7 +57,9 @@ export default function CalcGame() {
 
     setTimeout(() => {
       if (current >= 4) {
-        endGame(isCorrect);
+        const finalScore = newCorrect * 20;
+        setScore(finalScore);
+        setGameOver(true);
       } else {
         setCurrent(prev => prev + 1);
         setUserAnswer('');
@@ -61,11 +68,9 @@ export default function CalcGame() {
     }, 1500);
   };
 
-  const endGame = (lastCorrect: boolean) => {
-    const finalScore = (correct + (lastCorrect ? 1 : 0)) * 20;
-    setScore(finalScore);
-    setGameScore('calc', finalScore);  // Context에 저장!
-    setGameOver(true);
+  const handleFinish = () => {
+    setGameScore('calc', score);
+    router.back();
   };
 
   if (problems.length === 0) {
@@ -79,8 +84,8 @@ export default function CalcGame() {
           <Text style={styles.resultIcon}>🧮</Text>
           <Text style={styles.resultTitle}>게임 완료!</Text>
           <Text style={styles.resultScore}>+{score}점</Text>
-          <Text style={styles.resultInfo}>{Math.floor(score / 20)}개 정답!</Text>
-          <TouchableOpacity style={styles.finishButton} onPress={() => router.back()}>
+          <Text style={styles.resultInfo}>{score / 20}개 정답!</Text>
+          <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
             <Text style={styles.finishButtonText}>확인</Text>
           </TouchableOpacity>
         </View>

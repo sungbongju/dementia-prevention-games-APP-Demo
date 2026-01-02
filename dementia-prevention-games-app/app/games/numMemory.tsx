@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useGame } from '../../contexts/GameContext';  // 추가!
+import { useGame } from '@/contexts/GameContext';
 
 export default function MemoryGame() {
   const router = useRouter();
-  const { setGameScore } = useGame();  // 추가!
+  const { setGameScore } = useGame();
 
   const [level, setLevel] = useState(1);
   const [numbers, setNumbers] = useState('');
@@ -16,9 +16,13 @@ export default function MemoryGame() {
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const maxLevel = 5;
+  const initialized = useRef(false);
 
   useEffect(() => {
-    startRound();
+    if (!initialized.current) {
+      initialized.current = true;
+      startRound();
+    }
   }, []);
 
   const startRound = () => {
@@ -65,24 +69,20 @@ export default function MemoryGame() {
 
     setTimeout(() => {
       if (level >= maxLevel) {
-        endGame(isCorrect);
+        const finalCorrect = correct + (isCorrect ? 1 : 0);
+        const finalScore = finalCorrect * 20;
+        setScore(finalScore);
+        setGameOver(true);
       } else {
         setLevel(prev => prev + 1);
+        startRound();
       }
     }, 1500);
   };
 
-  useEffect(() => {
-    if (level > 1 && !gameOver) {
-      startRound();
-    }
-  }, [level]);
-
-  const endGame = (lastCorrect: boolean) => {
-    const finalScore = (correct + (lastCorrect ? 1 : 0)) * 20;
-    setScore(finalScore);
-    setGameScore('memory', finalScore);  // Context에 저장!
-    setGameOver(true);
+  const handleFinish = () => {
+    setGameScore('memory', score);
+    router.back();
   };
 
   if (gameOver) {
@@ -92,8 +92,8 @@ export default function MemoryGame() {
           <Text style={styles.resultIcon}>🔢</Text>
           <Text style={styles.resultTitle}>게임 완료!</Text>
           <Text style={styles.resultScore}>+{score}점</Text>
-          <Text style={styles.resultInfo}>{Math.floor(score / 20)}개 정답!</Text>
-          <TouchableOpacity style={styles.finishButton} onPress={() => router.back()}>
+          <Text style={styles.resultInfo}>{score / 20}개 정답!</Text>
+          <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
             <Text style={styles.finishButtonText}>확인</Text>
           </TouchableOpacity>
         </View>

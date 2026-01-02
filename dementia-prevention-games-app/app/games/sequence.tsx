@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useGame } from '../../contexts/GameContext';  // 추가!
+import { useGame } from '@/contexts/GameContext';
 
 const QUESTIONS = [
   { items: ['🥚', '🐣', '🐥', '🐔'], instruction: '달걀에서 닭이 되는 순서를 맞춰보세요!', answer: ['🥚', '🐣', '🐥', '🐔'] },
@@ -11,7 +11,7 @@ const QUESTIONS = [
 
 export default function SequenceGame() {
   const router = useRouter();
-  const { setGameScore } = useGame();  // 추가!
+  const { setGameScore } = useGame();
 
   const [current, setCurrent] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -21,9 +21,19 @@ export default function SequenceGame() {
   const [resultMessage, setResultMessage] = useState('');
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    shuffleItems();
+    if (!initialized.current) {
+      initialized.current = true;
+      shuffleItems();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialized.current && current > 0) {
+      shuffleItems();
+    }
   }, [current]);
 
   const shuffleItems = () => {
@@ -31,6 +41,7 @@ export default function SequenceGame() {
     setShuffledItems(items);
     setSelected([]);
     setShowResult(false);
+    setResultMessage('');
   };
 
   const selectItem = (item: string) => {
@@ -47,10 +58,11 @@ export default function SequenceGame() {
     }
 
     const isCorrect = selected.every((item, index) => item === QUESTIONS[current].answer[index]);
+    const newCorrect = isCorrect ? correct + 1 : correct;
     
     setShowResult(true);
     if (isCorrect) {
-      setCorrect(prev => prev + 1);
+      setCorrect(newCorrect);
       setResultMessage('정답입니다! 👏');
     } else {
       setResultMessage(`오답! 정답: ${QUESTIONS[current].answer.join(' → ')}`);
@@ -58,18 +70,18 @@ export default function SequenceGame() {
 
     setTimeout(() => {
       if (current >= 2) {
-        endGame(isCorrect);
+        const finalScore = Math.round(newCorrect * 33.33);
+        setScore(finalScore);
+        setGameOver(true);
       } else {
         setCurrent(prev => prev + 1);
       }
     }, 2000);
   };
 
-  const endGame = (lastCorrect: boolean) => {
-    const finalScore = Math.round((correct + (lastCorrect ? 1 : 0)) * 33.33);
-    setScore(finalScore);
-    setGameScore('sequence', finalScore);  // Context에 저장!
-    setGameOver(true);
+  const handleFinish = () => {
+    setGameScore('sequence', score);
+    router.back();
   };
 
   if (gameOver) {
@@ -80,7 +92,7 @@ export default function SequenceGame() {
           <Text style={styles.resultTitle}>게임 완료!</Text>
           <Text style={styles.resultScore}>+{score}점</Text>
           <Text style={styles.resultInfo}>{Math.round(score / 33.33)}개 정답!</Text>
-          <TouchableOpacity style={styles.finishButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
             <Text style={styles.finishButtonText}>확인</Text>
           </TouchableOpacity>
         </View>
@@ -130,7 +142,7 @@ export default function SequenceGame() {
             <Text style={styles.resetButtonText}>다시 선택</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.submitButtonSeq} onPress={submitAnswer}>
-            <Text style={styles.submitButtonText}>확인</Text>
+            <Text style={styles.submitButtonTextSeq}>확인</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -163,7 +175,7 @@ const styles = StyleSheet.create({
   resetButton: { backgroundColor: '#999', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 25 },
   resetButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   submitButtonSeq: { backgroundColor: '#6B5B95', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 25 },
-  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  submitButtonTextSeq: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   progressContainer: { height: 8, backgroundColor: '#ddd', borderRadius: 4, marginTop: 30, overflow: 'hidden' },
   progressBar: { height: '100%', backgroundColor: '#6B5B95', borderRadius: 4 },
   resultContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },

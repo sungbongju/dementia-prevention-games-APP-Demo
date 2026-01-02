@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useGame } from '../../contexts/GameContext';  // 추가!
+import { useGame } from '@/contexts/GameContext';
 
 const PROVERBS = [
   { text: '가는 말이 고와야 ____ 말이 곱다', answer: '오는', options: ['오는', '가는', '먼', '큰'] },
@@ -15,7 +15,7 @@ const PROVERBS = [
 
 export default function ProverbGame() {
   const router = useRouter();
-  const { setGameScore } = useGame();  // 추가!
+  const { setGameScore } = useGame();
 
   const [current, setCurrent] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -25,10 +25,14 @@ export default function ProverbGame() {
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [shuffledOptions, setShuffledOptions] = useState<string[]>([]);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    const shuffled = [...PROVERBS].sort(() => Math.random() - 0.5).slice(0, 5);
-    setShuffledProverbs(shuffled);
+    if (!initialized.current) {
+      initialized.current = true;
+      const shuffled = [...PROVERBS].sort(() => Math.random() - 0.5).slice(0, 5);
+      setShuffledProverbs(shuffled);
+    }
   }, []);
 
   useEffect(() => {
@@ -46,13 +50,14 @@ export default function ProverbGame() {
     setShowResult(true);
 
     const isCorrect = answer === currentProverb.answer;
-    if (isCorrect) {
-      setCorrect(prev => prev + 1);
-    }
+    const newCorrect = isCorrect ? correct + 1 : correct;
+    if (isCorrect) setCorrect(newCorrect);
 
     setTimeout(() => {
       if (current >= 4) {
-        endGame(isCorrect);
+        const finalScore = newCorrect * 20;
+        setScore(finalScore);
+        setGameOver(true);
       } else {
         setCurrent(prev => prev + 1);
         setSelectedAnswer(null);
@@ -61,14 +66,12 @@ export default function ProverbGame() {
     }, 1500);
   };
 
-  const endGame = (lastCorrect: boolean) => {
-    const finalScore = (correct + (lastCorrect ? 1 : 0)) * 20;
-    setScore(finalScore);
-    setGameScore('proverb', finalScore);  // Context에 저장!
-    setGameOver(true);
+  const handleFinish = () => {
+    setGameScore('proverb', score);
+    router.back();
   };
 
-  if (!currentProverb) {
+  if (!currentProverb && !gameOver) {
     return <View style={styles.container}><Text>로딩 중...</Text></View>;
   }
 
@@ -79,8 +82,8 @@ export default function ProverbGame() {
           <Text style={styles.resultIcon}>📜</Text>
           <Text style={styles.resultTitle}>게임 완료!</Text>
           <Text style={styles.resultScore}>+{score}점</Text>
-          <Text style={styles.resultInfo}>{Math.floor(score / 20)}개 정답!</Text>
-          <TouchableOpacity style={styles.finishButton} onPress={() => router.back()}>
+          <Text style={styles.resultInfo}>{score / 20}개 정답!</Text>
+          <TouchableOpacity style={styles.finishButton} onPress={handleFinish}>
             <Text style={styles.finishButtonText}>확인</Text>
           </TouchableOpacity>
         </View>
