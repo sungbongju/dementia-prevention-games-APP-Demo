@@ -79,7 +79,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // gameId 매핑 (numMemory → memory, pattern → yut)
     const gameKeyMap: Record<string, string> = {
       hwatu: 'hwatu',
-      pattern: 'yut',  // route.ts에서 yut으로 되어있음
+      pattern: 'pattern',  // route.ts에서 pattern으로 되어있음
       numMemory: 'memory',
       memory: 'memory',
       proverb: 'proverb',
