@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import GameCard from '../../components/GameCard';
 import { getStats, saveRecord, getRanking } from '../../services/api';
 import { useGame } from '@/contexts/GameContext';
+import MyRecordsModal from '@/components/MyRecordsModal';
 
 const GAMES = [
   { id: 'hwatu', title: '화투 짝맞추기', description: '같은 그림의 화투 패를 찾아 짝을 맞춰보세요.', icon: '🎴', color: '#1B4965' },
@@ -39,6 +40,7 @@ export default function HomeScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showRanking, setShowRanking] = useState(false);
+  const [showMyRecords, setShowMyRecords] = useState(false);
   const [rankingData, setRankingData] = useState<any[]>([]);
   const [rankingLoading, setRankingLoading] = useState(false);
   const [inputName, setInputName] = useState('');
@@ -146,7 +148,7 @@ export default function HomeScreen() {
         setRankingData(result.ranking);
       }
     } catch (error) {
-      console.error('랭킹 로드 오류:', error);
+      console.error('랭킹 조회 오류:', error);
     }
     
     setRankingLoading(false);
@@ -155,7 +157,7 @@ export default function HomeScreen() {
   const handleRestart = () => {
     Alert.alert(
       '다시 시작',
-      '현재 세션의 점수가 초기화됩니다.\n계속하시겠습니까?',
+      '현재 세션 점수가 초기화됩니다.\n계속하시겠습니까?',
       [
         { text: '취소', style: 'cancel' },
         { text: '확인', onPress: resetSessionScores },
@@ -165,7 +167,7 @@ export default function HomeScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      '다른 사용자로 전환',
+      '다른 이름으로',
       '저장하지 않은 점수는 사라집니다.\n계속하시겠습니까?',
       [
         { text: '취소', style: 'cancel' },
@@ -247,6 +249,7 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.buttonContainer}>
+                {/* 첫번째 줄: 저장 + 랭킹 */}
                 <View style={styles.buttonRow}>
                   <TouchableOpacity 
                     style={[styles.actionButton, styles.saveButton]}
@@ -264,6 +267,24 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 </View>
 
+                {/* 🆕 두번째 줄: 대시보드 + 내 기록 */}
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity 
+                    style={[styles.actionButton, styles.dashboardButton]}
+                    onPress={() => router.push('/(tabs)/dashboard')}
+                  >
+                    <Text style={styles.actionButtonText}>📊 대시보드</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.actionButton, styles.recordsButton]}
+                    onPress={() => setShowMyRecords(true)}
+                  >
+                    <Text style={styles.actionButtonText}>📋 내 기록</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 세번째 줄: 다시 시작 + 다른 이름 */}
                 <View style={styles.buttonRow}>
                   <TouchableOpacity 
                     style={[styles.actionButton, styles.restartButton]}
@@ -303,6 +324,7 @@ export default function HomeScreen() {
         <View style={{ height: 200 }} />
       </ScrollView>
 
+      {/* 랭킹 모달 */}
       <Modal
         visible={showRanking}
         animationType="slide"
@@ -344,6 +366,13 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 🆕 내 기록 모달 */}
+      <MyRecordsModal
+        visible={showMyRecords}
+        onClose={() => setShowMyRecords(false)}
+        playerName={playerName}
+      />
     </View>
   );
 }
@@ -382,53 +411,78 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 16,
   },
-  loginButton: { backgroundColor: '#1B4965', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 25 },
-  buttonDisabled: { backgroundColor: '#999' },
+  loginButton: {
+    backgroundColor: '#1B4965',
+    paddingVertical: 14,
+    paddingHorizontal: 48,
+    borderRadius: 12,
+  },
   loginButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  buttonDisabled: { opacity: 0.6 },
   scoreBoard: { alignItems: 'center' },
   welcomeText: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 16 },
   scoreRow: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginBottom: 16 },
   scoreItem: { alignItems: 'center' },
-  scoreLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
-  scoreValue: { fontSize: 18, fontWeight: 'bold', color: '#C73E3A' },
+  scoreLabel: { fontSize: 14, color: '#666' },
+  scoreValue: { fontSize: 20, fontWeight: 'bold', color: '#1B4965' },
   sessionScore: {
-    backgroundColor: '#FFF9E6',
+    backgroundColor: '#C73E3A',
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     borderRadius: 12,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#E8B931',
   },
-  sessionLabel: { fontSize: 12, color: '#666', textAlign: 'center' },
-  sessionValue: { fontSize: 28, fontWeight: 'bold', color: '#E8B931', textAlign: 'center' },
+  sessionLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 14, textAlign: 'center' },
+  sessionValue: { color: '#fff', fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
   buttonContainer: { width: '100%' },
-  buttonRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  actionButton: { 
+  buttonRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  actionButton: {
     flex: 1,
-    height: 50,
-    borderRadius: 25,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   saveButton: { backgroundColor: '#2D5016' },
   rankingButton: { backgroundColor: '#E8B931' },
-  restartButton: { backgroundColor: '#C73E3A' },
-  logoutButton: { backgroundColor: '#1B4965' },
-  actionButtonText: { color: '#fff', fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  dashboardButton: { backgroundColor: '#1B4965' },
+  recordsButton: { backgroundColor: '#8B4513' },
+  restartButton: { backgroundColor: '#666' },
+  logoutButton: { backgroundColor: '#999' },
+  actionButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   rankingButtonText: { color: '#1a1a1a' },
-  gamesSection: { marginTop: 8 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a', marginLeft: 20, marginBottom: 8 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', maxHeight: '70%', backgroundColor: '#fff', borderRadius: 20, padding: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 12 },
+  gamesSection: { padding: 16 },
+  sectionTitle: { fontSize: 22, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '70%',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#1a1a1a' },
-  modalClose: { fontSize: 24, color: '#999', padding: 4 },
-  loadingText: { textAlign: 'center', color: '#666', paddingVertical: 20 },
-  emptyText: { textAlign: 'center', color: '#666', paddingVertical: 20 },
-  rankingItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  rankingItemMe: { backgroundColor: '#FFF9E6', borderRadius: 8 },
-  rankingRank: { fontSize: 18, width: 40, textAlign: 'center' },
-  rankingName: { flex: 1, fontSize: 16, fontWeight: '500', color: '#1a1a1a' },
+  modalClose: { fontSize: 24, color: '#666', padding: 8 },
+  loadingText: { textAlign: 'center', padding: 20, color: '#666' },
+  rankingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  rankingItemMe: { backgroundColor: '#FFF3CD' },
+  rankingRank: { width: 40, fontSize: 18, textAlign: 'center' },
+  rankingName: { flex: 1, fontSize: 16, color: '#1a1a1a' },
   rankingScore: { fontSize: 16, fontWeight: 'bold', color: '#C73E3A' },
+  emptyText: { textAlign: 'center', padding: 20, color: '#999' },
 });
