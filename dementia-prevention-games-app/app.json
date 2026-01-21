@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "dementia-prevention-games-app",
+    "name": "치매예방 두뇌게임",
     "slug": "dementia-prevention-games-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#C73E3A"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#C73E3A"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
